@@ -8,7 +8,7 @@ def create_research_agent():
     tools = [search_tool]
     llm = get_llm(smart = False)
     prompt = RESEARCH_PROMPT
-    agent = create_openai_tools_agent(llm, tools,prompt)
+    agent = create_openai_tools_agent(llm,tools,prompt)
 
     agent_executor = AgentExecutor(agent = agent,tools = tools,verbose=True)
     return agent_executor
