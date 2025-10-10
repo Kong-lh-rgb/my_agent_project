@@ -6,3 +6,4 @@ langchain-openai
 python-dotenv
 requests
 jupyter
+langgraph
