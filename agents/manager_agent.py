@@ -15,7 +15,7 @@
 #     result = res.invoke({"input":"帮我看一下我的代码哪里有问题"})
 #     print(result["output"])
 #
-# # agents/manager_agent.py
+
 
 from pydantic import BaseModel, Field
 from typing import Literal
@@ -37,7 +37,6 @@ def create_manager_router_chain():
     """
     llm = get_llm(smart=False)
 
-    # 使用 .with_structured_output 来确保LLM返回我们定义的RouteDecision格式
     structured_llm = llm.with_structured_output(RouteDecision)
     router_chain = NAVIGATE_PROMPT | structured_llm
     return router_chain
@@ -52,6 +51,5 @@ if __name__ == "__main__":
         "input": "帮我调研一下langgraph的最新特性，并写一份总结报告",
         "messages": [HumanMessage(content="帮我调研一下langgraph的最新特性，并写一份总结报告")]
     })
-
     print(f"下一步路由到: {result.destination}")
     print(f"传递给下一个Agent的任务: {result.next_input}")

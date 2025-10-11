@@ -27,3 +27,13 @@ NAVIGATE_PROMPT = ChatPromptTemplate.from_messages([
     MessagesPlaceholder(variable_name="messages"),
     ("human", "{input}"),
 ])
+
+POST_RESEARCH_PROMPT = ChatPromptTemplate.from_messages([
+    """
+    你是一个决策助理，你的任务是分析用户的问题和刚刚总结出来的摘要。
+    根据用户的问题判断他的意图，如果用户只是需要简单的回答问题则将研究摘要总结成一个清晰的答案；
+    如果用户需要生成报告等，请将研究摘要作为资料，并将目标设为 'writer_agent'。
+    用户问题：{input},
+    研究摘要：{summary}
+    """
+])
