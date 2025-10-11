@@ -8,3 +8,6 @@ EASY_MODEL_NAME= "gpt-4o-mini"
 SMART_MODEL_NAME = "gpt-4o"
 
 SEARCH_API_KEY = os.getenv("TAVILY_API_KEY")
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUT_FILE_PATH = os.path.join(PROJECT_ROOT, "outputs")

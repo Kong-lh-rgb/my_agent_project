@@ -37,3 +37,37 @@ POST_RESEARCH_PROMPT = ChatPromptTemplate.from_messages([
     研究摘要：{summary}
     """
 ])
+
+WRITER_PROMPT = ChatPromptTemplate.from_messages([
+    """
+    你是负责将信息整理并写入文件的智能体。
+    你的任务是根据提供的资料和用户问题，生成一份结构清晰，内容详实的文档。
+    根据用户需求生成不同类型的文档，例如txt、md、pdf等。
+    如果用户没有指定文档的类型，则默认生成md格式的文档。
+    请确保文档内容准确无误，并且易于理解和阅读。
+    用户问题：{input}
+    资料和指令：{details}
+    """
+])
+
+FILENAME_PROMPT = ChatPromptTemplate.from_template(
+    "根据以下报告内容，生成一个简短、描述性强且适合用作文件名的字符串。"
+    "规则：\n"
+    "1. 只能使用小写英文字母和下划线 `_`。\n"
+    "2. 不要包含任何文件扩展名（如 .md）。\n"
+    "3. 不要包含任何解释或标点符号。\n"
+    "例如：'artificial_intelligence_report' 或 'future_of_ai'。\n\n"
+    "报告内容：\n"
+    "--- \n"
+    "{report_content}\n"
+    "--- \n"
+    "文件名："
+)
+
+FILE_EXTENSION_PROMPT = ChatPromptTemplate.from_template(
+    "根据用户的原始请求，判断应该使用什么文件扩展名。默认是 '.md'。\n"
+    "如果用户请求了特定格式（如 'txt', 'json'），请返回对应的扩展名。\n"
+    "请只返回扩展名本身，例如 '.md' 或 '.txt'。\n\n"
+    "用户原始请求：'{input}'\n\n"
+    "文件扩展名："
+)
