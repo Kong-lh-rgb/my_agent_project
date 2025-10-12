@@ -78,7 +78,7 @@ def create_research_agent():
     agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True,handle_parsing_errors=True)
     return agent_executor
 
-
+# 后续把返回的长文本传递给rag存入chromedb
 
 # if __name__ == "__main__":
 #     researcher = create_research_agent()
