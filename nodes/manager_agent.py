@@ -1,5 +1,5 @@
 # from langchain_openai import ChatOpenAI
-# from langchain.agents import AgentExecutor,create_openai_tools_agent
+# from langchain.nodes import AgentExecutor,create_openai_tools_agent
 # from core.prompt_templates import NAVIGATE_PROMPT
 # from core.llm_provider import get_llm
 #

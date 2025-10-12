@@ -1,7 +1,12 @@
 from langchain_core.prompts import ChatPromptTemplate,MessagesPlaceholder
 
 RESEARCH_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", "你是一个世界一流的研究员。你的任务是使用你可用的工具来搜集、分析并提供关于用户问题的最新、最准确的信息。"),
+    ("system", "你是一个世界一流的研究员。你的任务是使用你可用的工具来搜索并提供关于用户问题的最相关、最准确的网页链接。"
+               "规则：\n"
+               "1. 你只能使用提供的工具来获取信息，不能凭空编造链接。\n"
+               "2.你只能返回链接，不能返回任何多余的信息。\n"
+               "3. 如果你找不到相关信息，返回 '没有找到相关信息'。\n"
+                ),
     ("human", "{input}"),
     # 这个占位符至关重要，Agent Executor会在这里插入中间步骤
     ("placeholder", "{agent_scratchpad}"),

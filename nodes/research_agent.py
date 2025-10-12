@@ -4,7 +4,7 @@
 # from core.llm_provider import get_llm
 # from tools.search_tool import search_tool
 # from core.prompt_templates import RESEARCH_PROMPT,DECISION_PROMPT
-# from langchain.agents import AgentExecutor,create_openai_tools_agent
+# from langchain.nodes import AgentExecutor,create_openai_tools_agent
 #
 #
 # class choice(BaseModel):
@@ -63,18 +63,20 @@
 
 from core.llm_provider import get_llm
 from tools.search_tool import search_tool
+# from tools.web_browser import web_tool
 from core.prompt_templates import RESEARCH_PROMPT
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 
 def create_research_agent():
     """
-    接收一个问题，使用工具进行研究，并返回包含最终答案的字典。
+    接收一个问题，使用tavily工具进行搜索最相关的网页链接并返回。
     """
     tools = [search_tool]
     llm = get_llm(smart=False)
     agent = create_openai_tools_agent(llm, tools, RESEARCH_PROMPT)
     agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
     return agent_executor
+
 
 if __name__ == "__main__":
     researcher = create_research_agent()
