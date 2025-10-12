@@ -6,7 +6,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 EASY_MODEL_NAME= "gpt-4o-mini"
 SMART_MODEL_NAME = "gpt-4o"
-
+EMBEDDING_MODEL_NAME = "text-embedding-3-small"
 SEARCH_API_KEY = os.getenv("TAVILY_API_KEY")
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

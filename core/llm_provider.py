@@ -1,4 +1,4 @@
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI,OpenAIEmbeddings
 
 from . import config
 
@@ -11,4 +11,11 @@ def get_llm(smart: bool = False):
         model=model_name,
         api_key=config.OPENAI_API_KEY,
         temperature=0
+    )
+def get_embedding_model():
+
+    return OpenAIEmbeddings(
+        base_url='https://api.openai-proxy.org/v1',
+        model=config.EMBEDDING_MODEL_NAME,
+        api_key=config.OPENAI_API_KEY,
     )

@@ -9,3 +9,4 @@ jupyter
 langgraph
 beautifulsoup4
 chromadb
+faiss-cpu
