@@ -67,7 +67,8 @@ from tools.web_tool import web_tool
 from core.prompt_templates import RESEARCH_PROMPT
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 
-def create_research_agent():
+# 接收状态中的用户信息，返回到state中的raw_text字段
+def create_research_agent(state=None):
     """
     创建一个拥有搜索和网页浏览能力的自主研究代理。
     该代理可以自行决定使用哪个工具来完成任务。
