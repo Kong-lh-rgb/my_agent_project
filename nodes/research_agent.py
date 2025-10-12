@@ -63,22 +63,25 @@
 
 from core.llm_provider import get_llm
 from tools.search_tool import search_tool
-# from tools.web_browser import web_tool
+from tools.web_tool import web_tool
 from core.prompt_templates import RESEARCH_PROMPT
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 
 def create_research_agent():
     """
-    接收一个问题，使用tavily工具进行搜索最相关的网页链接并返回。
+    创建一个拥有搜索和网页浏览能力的自主研究代理。
+    该代理可以自行决定使用哪个工具来完成任务。
     """
-    tools = [search_tool]
+    tools = [search_tool,web_tool]
     llm = get_llm(smart=False)
     agent = create_openai_tools_agent(llm, tools, RESEARCH_PROMPT)
-    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True,handle_parsing_errors=True)
     return agent_executor
 
 
-if __name__ == "__main__":
-    researcher = create_research_agent()
-    result = researcher.invoke({"input": "马云是谁？"})
-    print(result['output'])
+
+# if __name__ == "__main__":
+#     researcher = create_research_agent()
+#     question = "有什么关于openai的最新新闻？"
+#     result = researcher.invoke({"input": question})
+#     print(result)
