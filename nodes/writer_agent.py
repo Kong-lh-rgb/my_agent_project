@@ -46,18 +46,18 @@ def create_writer_agent(state: Dict[str, Any]):
 
     return {"report_summary": result.get("output")}
 
-if __name__ == '__main__':
-    # 模拟一个包含检索结果的 state
-    test_state = {
-        "input": "小b的父母是谁",
-        "documents": [
-            Document(page_content="小a是小b的爸爸"),
-            Document(page_content="小c是小b的妈妈"),
-        ]
-    }
-
-    # 运行智能体节点
-    final_result = create_writer_agent(test_state)
-
-    print("\n" + "="*20 + " AGENT FINAL OUTPUT " + "="*20 + "\n")
-    print(final_result)
+# if __name__ == '__main__':
+#     # 模拟一个包含检索结果的 state
+#     test_state = {
+#         "input": "小b的父母是谁",
+#         "documents": [
+#             Document(page_content="小a是小b的爸爸"),
+#             Document(page_content="小c是小b的妈妈"),
+#         ]
+#     }
+#
+#     # 运行智能体节点
+#     final_result = create_writer_agent(test_state)
+#
+#     print("\n" + "="*20 + " AGENT FINAL OUTPUT " + "="*20 + "\n")
+#     print(final_result)

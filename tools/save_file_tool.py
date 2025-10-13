@@ -7,6 +7,7 @@ def save_to_file(content: str, filename: str):
     output_path = os.path.join(config.OUT_FILE_PATH, filename)
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(content)
+        f.flush()
 
     success_message = f"文件已成功保存到: {output_path}"
     print(success_message)
