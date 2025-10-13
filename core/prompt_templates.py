@@ -1,18 +1,16 @@
 from langchain_core.prompts import ChatPromptTemplate,MessagesPlaceholder
 
 RESEARCH_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", "你是一个自动化的网络资料收集助手。你的任务是使用你可用的工具来搜索并提供关于用户问题的最相关、最准确的网页上的信息并返回资料。"
-               "流程：\n"
-               "1. 首先使用'search_tool'为用户的查询提供最相关的网页链接。\n"
-               "2. 接下来分析搜索结果，使用'web_tool'访问每一个相关的url，并提取完整的文本内容。\n"
-               "3. 最后将所有URL中提取的文本内容合并成一个单一的文本块。在每个网页内容之间用'\\n\\n--- 原始网页分割线 ---\\n\\n'进行分隔。\n"
-               "规则：\n"
-               "你的最终输出必须是且只能是这个合并后的原始文本。不要进行任何形式的总结、解释或添加额外信息。\n"
-                ),
+    ("system", "你是一个自动化的网络资料收集助手。你的任务是：\n"
+               "1. 使用'search_tool'为用户的查询找到最相关的网页链接。\n"
+               "2. 使用'web_tool'访问这些链接，提取完整的文本内容。\n"
+               "3. 将所有提取的文本内容合并，并用'\\n\\n--- 原始网页分割线 ---\\n\\n'分隔。\n"
+               "4. 将合并后的文本作为最终输出。不要进行总结或添加额外评论。"),
     ("human", "{input}"),
     # 这个占位符至关重要，Agent Executor会在这里插入中间步骤
     ("placeholder", "{agent_scratchpad}"),
 ])
+
 
 # NAVIGATE_PROMPT = ChatPromptTemplate.from_messages([
 #     ("system", "你是意图判断ai助理。作为接受用户输入的第一个结点，"

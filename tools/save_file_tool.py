@@ -8,6 +8,7 @@ def save_to_file(content: str, filename: str):
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(content)
         f.flush()
+        os.fsync(f.fileno())
 
     success_message = f"文件已成功保存到: {output_path}"
     print(success_message)

@@ -21,7 +21,7 @@ class State(TypedDict):
     raw_text:str
     next_node:str
     current_task:str
-    retriever:Annotated[Any, lambda x, y: y]
+    serialized_vectorstore: bytes
 
 
 def manager_node(state:State):
@@ -65,8 +65,7 @@ def rag_node(state:State):
     """接受原始文本，对文本进行分块，向量化存入数据库"""
     print("对数据进行向量化中...")
     print("---调用 RAG 节点---")
-    documents = put_in_db_node(state)  # 假设函数返回 List[Document]
-    return documents
+    return put_in_db_node(state)
 
 
 def find_answer_node(state:State):
@@ -95,7 +94,7 @@ def route_after_manage(state:State):
         return "writer_agent"
     elif next_node == "code_agent":
         print("code_agent 节点尚未实现，路由到 END")
-        return "END"
+        return END
     elif next_node == "END":
         return END
     else:
@@ -122,7 +121,7 @@ def build_graph():
             "research_agent": "research_agent",
             "writer_agent": "writer_agent",
             "code_agent": END,  # code_agent 节点尚未实现，直接路由到 END
-            "END": END
+            END: END
         }
     )
 

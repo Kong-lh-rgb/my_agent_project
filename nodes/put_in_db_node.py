@@ -22,8 +22,10 @@ def put_in_db_node(state:Dict[str, Any]) -> Dict[str, Any]:
     #向量化
     embeddings = get_embedding_model()
     vectorstore = FAISS.from_texts(texts = chunks, embedding = embeddings)
+
+    serialized_store = vectorstore.serialize_to_bytes()
     # 放入state中
-    return {"retriever": vectorstore.as_retriever()}
+    return {"serialized_vectorstore": serialized_store}
 
 # if __name__ == "__main__":
 #     # 模拟一个包含大量原始文本的 state
