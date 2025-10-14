@@ -10,3 +10,4 @@ langgraph
 beautifulsoup4
 chromadb
 faiss-cpu
+PyPDF2
