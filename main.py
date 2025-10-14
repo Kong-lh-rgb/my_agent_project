@@ -3,7 +3,8 @@ import uuid
 from workflow.task_graph import build_graph
 from dotenv import load_dotenv
 load_dotenv()
-
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+import sqlite3
 # 为每次会话生成一个唯一的 ID
 config = {"configurable": {"thread_id": str(uuid.uuid4())}}
 
@@ -12,48 +13,53 @@ async def main():
     主执行函数
     """
     # 编译图
-    graph = build_graph()
+    async with AsyncSqliteSaver.from_conn_string(":memory:") as memory:  # 这里用内存数据库做演示，换成 "checkpoints.sqlite" 即可保存到文件
+        graph = build_graph(checkpointer=memory)
 
-    print("你好！我是一个智能助理。输入 'exit' 或 'quit' 退出。")
-    while True:
-        # 接收用户输入
-        user_input = input("你: ")
-        if user_input.lower() in ["exit", "quit"]:
-            print("再见！")
-            break
+        session_id = "my-first-session"  # 使用一个固定的ID
+        config = {"configurable": {"thread_id": session_id}}
 
-        # 准备图的初始状态
-        inputs = {"input": user_input}
+        print("你好！我是一个智能助理。输入 'exit' 或 'quit' 退出。")
+        while True:
+            # 接收用户输入
+            user_input = input("你: ")
+            if user_input.lower() in ["exit", "quit"]:
+                print("再见！")
+                break
 
-        print("\n" + "="*30)
-        print("--- 开始处理 ---")
+            if user_input.lower() == "reset":
+                print("对话已重置。")
+                session_id = "session_" + str(uuid.uuid4())  # 创建一个新的会话ID
+                config = {"configurable": {"thread_id": session_id}}
+                continue
 
-        # 使用 astream_events 以异步流式方式执行图
-        async for event in graph.astream_events(inputs, config=config, version="v1"):
-            kind = event["event"]
-            if kind == "on_chain_start":
-                # 可以在这里打印节点的开始信息
-                if event["name"] != "LangGraph": # 过滤掉顶层图的事件
-                    print(f"\n> 开始执行节点: {event['name']}")
-            elif kind == "on_chain_end":
-                # 检查节点执行完毕后的输出
-                if event["name"] != "LangGraph":
-                    print(f"< 节点 '{event['name']}' 执行完毕。")
-                    # event['data']['output'] 包含节点的直接返回值
-                    # 如果想打印完整的 State，需要更复杂的处理
-                    # 这里我们只简单示意
-                    output = event['data'].get('output')
-                    if isinstance(output, dict):
-                        if "current_task" in output and output["current_task"]:
-                             print(f"  - 当前任务: {output['current_task']}")
-                        if "report_summary" in output and output["report_summary"]:
-                             print(f"  - 最终报告:\n{output['report_summary']}")
+            # 准备图的初始状态
+            inputs = {"input": user_input}
 
+            print("\n")
+            print("思考中..."+"\n")
 
-        print("\n--- 处理完成 ---")
-        print("="*30 + "\n")
+            final_state = None
+            async for event in graph.astream(inputs, config=config, stream_mode="updates"):
+                # 打印节点执行信息
+                for node, values in event.items():
+                    print(f"\n> 节点 '{node}' 返回输出:")
+                    # 你可以在这里打印更详细的 values 内容进行调试
+                    # print(values)
+                final_state = event
+
+            # 在图执行完毕后，检查并打印最后一条消息
+            if final_state:
+                last_node = list(final_state.keys())[-1]
+                messages = final_state[last_node].get("messages", [])
+                if messages:
+                    last_message = messages[-1]
+                    # 如果最后一条消息是 AI 发出的，就打印出来
+                    if hasattr(last_message, 'type') and last_message.type == 'ai':
+                        print(f"\n助理: {last_message.content}")
+
+            print("\n")
 
 
 if __name__ == "__main__":
-    # 异步运行 main 函数
     asyncio.run(main())

@@ -1,14 +1,15 @@
-from langchain_core.messages import AnyMessage, HumanMessage
+from langchain_core.messages import AnyMessage, HumanMessage, AIMessage
 from langgraph.graph import StateGraph,START,END
 from typing import Annotated,List,Literal
 from typing_extensions import TypedDict, Any
 from langchain_core.documents import Document
-from nodes.manager_agent import create_manager_router_chain
+from nodes.manager_agent import create_manager_router_chain,manager_process
 from nodes.research_agent import create_research_agent
 from nodes.put_in_db_node import put_in_db_node
 from nodes.find_node import find
 from nodes.writer_agent import create_writer_agent
-
+from nodes.qa_agent_node import create_qa_agent,qa_process
+from nodes.rewrite_query_node import get_chat_history, rewrite_query
 
 
 
@@ -22,33 +23,17 @@ class State(TypedDict):
     next_node:str
     current_task:str
     serialized_vectorstore: bytes
-
+    required_report:bool
+    awaiting_clarification:bool
+    rewritten_input:str
 
 def manager_node(state:State):
     """
     管理智能体节点，负责根据用户输入和当前状态决定下一个执行的智能体节点。
     它使用一个路由链来分析用户的查询，并选择最合适的智能体来处理任务。
     """
-    print("---调用 Manager 节点，开始进行意图判断---")
-    messages = state.get("messages", []) + [HumanMessage(content=state["input"])]
-    if not messages[-1].content:
-        print("错误：最新的消息内容为空")
-        return {"next_node": "END"}
-
-    manager_chain = create_manager_router_chain()
-    res = manager_chain.invoke({
-        "messages": messages,
-        "input": state["input"],
-    })
-
-    print(f"Manager 决策: 下一步路由到 -> {res.destination}")
-    print(f"Manager 决策: 下一步任务 -> {res.next_input}")
-
-    return {
-        "messages": messages,
-        "next_node":res.destination,
-        "current_task":res.next_input
-    }
+    res = manager_process(state)
+    return res
 
 
 def research_node(state:State):
@@ -67,6 +52,12 @@ def rag_node(state:State):
     print("---调用 RAG 节点---")
     return put_in_db_node(state)
 
+def rewrite_query_node(state:State):
+    """重写用户查询以包含上下文"""
+    print("---调用 rewrite_query_node，优化查询---")
+    messages = state.get("messages", [])
+    get_chat_history(messages)
+    return rewrite_query(state)
 
 def find_answer_node(state:State):
     """接受用户问题到向量库中进行检索"""
@@ -75,13 +66,22 @@ def find_answer_node(state:State):
     res = find(state)
     return res
 
+def qa_node(state: State):
+    """
+    节点函数：根据检索到的文档和聊天历史生成最终答案。
+    """
+    res = qa_process(state)
+    return res
 
 def writer_node(state:State):
     """负责整理报告并写入文件"""
     print("---调用 Writer 节点，生成报告---")
     final_result = create_writer_agent(state)
+    out_put = final_result.get("output", "")
+    print(f"节点信息: {out_put}")
     return {
-        "report_summary": final_result.get("report_summary", "")
+        "report_summary": out_put,
+        "messages": [AIMessage(content=out_put)]
     }
 
 def route_after_manage(state:State):
@@ -91,7 +91,9 @@ def route_after_manage(state:State):
     if next_node == "research_agent":
         return "research_agent"
     elif next_node == "writer_agent":
-        return "writer_agent"
+        return "research_agent"
+    elif next_node == "qa_agent":
+        return "qa_agent"
     elif next_node == "code_agent":
         print("code_agent 节点尚未实现，路由到 END")
         return END
@@ -101,7 +103,24 @@ def route_after_manage(state:State):
         print(f"未知的 next_node: {next_node}，路由到 END")
         return END
 
-def build_graph():
+def route_after_find(state: State):
+    """在 find_node 后，根据原始意图决定去向"""
+    report_choice = state.get("required_report")
+    next_node = state.get("next_node")
+    print("find_node 后的 next_node:", next_node)
+    print(f"是否需要生成报告: 原始意图是 {report_choice}")
+    # if next_node == "qa_agent":
+    #     return "qa_node"
+    if report_choice is True:
+    # if report_choice is True:
+        return "writer_agent"
+    elif next_node == "writer_agent":
+        return "writer_agent"
+    else:
+        return "qa_node"
+
+
+def build_graph(checkpointer):
     workflow = StateGraph(State)
 
     workflow.add_node("manager_agent", manager_node)
@@ -109,6 +128,8 @@ def build_graph():
     workflow.add_node("rag_node", rag_node)
     workflow.add_node("find_node", find_answer_node)
     workflow.add_node("writer_agent", writer_node)
+    workflow.add_node("qa_node", qa_node)
+    workflow.add_node("rewrite_query_node", rewrite_query_node)
 
     # 执行流程
     workflow.set_entry_point("manager_agent")
@@ -120,6 +141,8 @@ def build_graph():
         {
             "research_agent": "research_agent",
             "writer_agent": "writer_agent",
+            # "find_node": "find_node",
+            "qa_agent": "qa_node",
             "code_agent": END,  # code_agent 节点尚未实现，直接路由到 END
             END: END
         }
@@ -127,8 +150,20 @@ def build_graph():
 
     workflow.add_edge("research_agent", "rag_node")
     workflow.add_edge("rag_node", "find_node")
-    workflow.add_edge("find_node", "writer_agent")
-    workflow.add_edge("writer_agent", END)
+    workflow.add_edge("rewrite_query_node", "find_node")
+    # workflow.add_edge("find_node", "qa_node")
 
-    app = workflow.compile()
+    workflow.add_conditional_edges(
+        "find_node",
+        route_after_find,
+        {
+            "qa_node": "qa_node",
+            "writer_agent": "writer_agent"
+        }
+    )
+
+    workflow.add_edge("writer_agent", END)
+    workflow.add_edge("qa_node", END)
+
+    app = workflow.compile(checkpointer=checkpointer)
     return app

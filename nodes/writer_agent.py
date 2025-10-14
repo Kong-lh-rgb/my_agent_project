@@ -44,7 +44,7 @@ def create_writer_agent(state: Dict[str, Any]):
         "details": doc_details
     })
 
-    return {"report_summary": result.get("output")}
+    return result
 
 # if __name__ == '__main__':
 #     # 模拟一个包含检索结果的 state
