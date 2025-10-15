@@ -12,7 +12,6 @@ def create_qa_agent():
     """
     tools = []
     llm = get_llm(smart=False)
-    # 【关键修改】这里的链结构要和 qa_node 的输入对应
     agent = create_openai_tools_agent(llm, tools, QA_PROMPT)
     agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, handle_parsing_errors=True)
     return agent_executor
@@ -26,8 +25,7 @@ def qa_process(state):
     print("---调用 QA 节点，生成答案---")
     documents = state.get("documents", [])[:3]
     messages = state.get("messages", [])
-    # 【关键修改】确定要回答的问题
-    # 优先使用重写后的问题，其次是当前任务，最后是原始输入
+
     question = state.get("current_task")
 
     if not question:
@@ -42,11 +40,10 @@ def qa_process(state):
 
     print(f"QA 节点正在回答问题: '{question}'")
 
-    # 【关键修改】准备聊天记录（排除最后一条用户输入）
-    # 注意：manager_node 已经将当前输入加入了 messages，所以这里取 [:-1]
+
     chat_history = messages[:-1] if messages else []
 
-    # 创建并调用链
+
 
     docs_content = "\n\n".join([doc.page_content for doc in documents])
 
@@ -54,7 +51,5 @@ def qa_process(state):
 
     print(f"QA 节点生成的答案: {answer}")
 
-    # 将 AI 的回答追加到消息历史中
-    # 注意：manager_node 已经加了 HumanMessage，这里只加 AIMessage
     return {"messages": [AIMessage(content=answer)]}
 

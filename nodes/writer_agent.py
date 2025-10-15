@@ -28,7 +28,7 @@ def _create_writer_agent_executor():
     agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
     return agent_executor
 
-# 【优化】在模块加载时创建一次 Agent Executor
+
 _writer_agent_executor = _create_writer_agent_executor()
 
 def writer_process(state: Dict[str, Any]):
@@ -44,7 +44,7 @@ def writer_process(state: Dict[str, Any]):
         for i, doc in enumerate(documents)
     ])
 
-    # 【优化】直接调用预先创建好的 agent_executor
+
     result = _writer_agent_executor.invoke({
         "input": user_input,
         "details": doc_details

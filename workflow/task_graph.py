@@ -12,9 +12,6 @@ from nodes.qa_agent_node import create_qa_agent,qa_process
 from nodes.other_chat_node import other_chat_process
 
 
-
-
-
 class State(TypedDict):
     input:str
     messages: Annotated[List[AnyMessage], lambda x, y: x + y]
@@ -29,6 +26,9 @@ class State(TypedDict):
     rewritten_input:str
     clarification_type:str
 
+
+
+
 def manager_node(state:State):
     """
     管理智能体节点，负责根据用户输入和当前状态决定下一个执行的智能体节点。
@@ -36,7 +36,6 @@ def manager_node(state:State):
     """
     res = manager_process(state)
     return res
-
 
 
 def research_node(state:State):
@@ -53,7 +52,6 @@ def rag_node(state:State):
     return put_in_db_node(state)
 
 
-
 def find_answer_node(state:State):
     """接受用户问题到向量库中进行检索"""
     print("从向量库中检索相关信息...")
@@ -61,12 +59,14 @@ def find_answer_node(state:State):
     res = find(state)
     return res
 
+
 def qa_node(state: State):
     """
     节点函数：根据检索到的文档和聊天历史生成最终答案。
     """
     res = qa_process(state)
     return res
+
 
 def writer_node(state:State):
     """负责整理报告并写入文件"""
@@ -83,6 +83,7 @@ def writer_node(state:State):
 def other_chat_node(state:State):
     res = other_chat_process(state)
     return res
+
 
 
 
@@ -109,6 +110,7 @@ def route_after_manage(state:State):
         print(f"未知的 next_node: {next_node}，路由到 END")
         return END
 
+
 def route_after_find(state: State):
     """在 find_node 后，根据原始意图决定去向"""
     report_choice = state.get("required_report")
@@ -128,6 +130,9 @@ def route_after_find(state: State):
         return "qa_node"
 
 
+
+
+
 def build_graph(checkpointer):
     workflow = StateGraph(State)
 
@@ -139,10 +144,10 @@ def build_graph(checkpointer):
     workflow.add_node("qa_node", qa_node)
     workflow.add_node("other_chat_node", other_chat_node)
 
-    # 执行流程
+
     workflow.set_entry_point("manager_agent")
 
-    #条件路由
+
     workflow.add_conditional_edges(
         "manager_agent",
         route_after_manage,
@@ -174,5 +179,8 @@ def build_graph(checkpointer):
     workflow.add_edge("writer_agent", END)
     workflow.add_edge("qa_node", END)
     workflow.add_edge("other_chat_node", END)
+
+
+
     app = workflow.compile(checkpointer=checkpointer)
     return app

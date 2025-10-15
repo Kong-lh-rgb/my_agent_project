@@ -59,7 +59,7 @@ def manager_process(state):
         print("---处理用户对报告需求的澄清---")
         original_task = state["current_task"]
         clarification_type = state.get("clarification_type")
-        # 用户的 'y'/'n' 回答在 user_input 中
+
         if clarification_type == "report_needed":
             print("---处理用户对报告需求的澄清 (y/n)---")
             choice = user_input.strip().lower()
@@ -126,14 +126,18 @@ def manager_process(state):
         clarification_message = AIMessage(content=question)
         return {
             "messages": messages + [clarification_message],
-            "current_task": res.next_input,  # 保存重写后的任务
+            "current_task": res.next_input,
             "awaiting_clarification": True,
             "clarification_type": res.clarification_type,
             "next_node": END
         }
 
+
+
     print(f"Manager 决策: 下一步路由到 -> {res.destination}")
     print(f"Manager 决策: 下一步任务 -> {res.next_input}")
+
+
 
     return {
         "messages": messages,

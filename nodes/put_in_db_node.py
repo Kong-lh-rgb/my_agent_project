@@ -24,6 +24,8 @@ def put_in_db_node(state:Dict[str, Any]) -> Dict[str, Any]:
     vectorstore = FAISS.from_texts(texts = chunks, embedding = embeddings)
 
     serialized_store = vectorstore.serialize_to_bytes()
+
+
     # 放入state中
     return {"serialized_vectorstore": serialized_store}
 

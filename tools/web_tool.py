@@ -35,13 +35,12 @@ def web_tool(url: str):
         }
 
         response = requests.get(url, headers=headers, timeout=15)
-        response.raise_for_status()  # 确保请求成功
+        response.raise_for_status()
 
         content_type = response.headers.get('Content-Type', '').lower()
         raw_text = ""
 
         if 'application/pdf' in content_type:
-            # 使用 BytesIO 在内存中处理 PDF 内容
             pdf_file = io.BytesIO(response.content)
             reader = PyPDF2.PdfReader(pdf_file)
             text_parts = []
@@ -51,9 +50,9 @@ def web_tool(url: str):
                     text_parts.append(page_text)
             raw_text = '\n'.join(text_parts)
 
-        # 如果不是PDF，则作为HTML处理
+
         else:
-            # 尝试使用 apparent_encoding，如果失败则回退到 utf-8
+
             try:
                 response.encoding = response.apparent_encoding
                 html_content = response.text
@@ -63,13 +62,13 @@ def web_tool(url: str):
 
             soup = BeautifulSoup(html_content, 'html.parser')
 
-            # 移除不需要的标签
+
             for tag in soup(['script', 'style', 'noscript', 'nav', 'footer', 'header', 'form', 'aside', 'ul', 'img', 'ol', 'li', 'video']):
                 tag.decompose()
 
             raw_text = soup.get_text(separator=' ', strip=True)
 
-        # 在返回前根据 token 数量截断文本
+
         truncated_text = _truncate_text_by_tokens(raw_text)
         print(f"--- Web Tool: 原始字符数: {len(raw_text)}, 截断后字符数: {len(truncated_text)} ---")
         return truncated_text

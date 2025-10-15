@@ -19,6 +19,6 @@ def generate_filename(input: str, content: str) -> (str, str):
     extension = second_result.content.strip()
     if not extension.startswith("."):
         extension = '.' + re.sub(r'[^a-z0-9]', '', extension.lower())
-    if len(extension) < 2:  # 如果扩展名无效，使用默认值
+    if len(extension) < 2:
         extension = ".md"
     return filename, extension
