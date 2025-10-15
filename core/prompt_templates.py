@@ -32,7 +32,7 @@ NAVIGATE_PROMPT = ChatPromptTemplate.from_messages([
      "--- 路由选项 ---\n"
      "1. `ask_user`: 当用户的意图不明确时选择此项。\n"
      "2. `writer_agent`: 如果用户**明确了报告的主题和内容**，并要求**研究并生成报告**。\n"
-     "3. `qa_agent`: 如果用户是基于**已经提供的信息**进行提问、要求总结或澄清。\n"
+     "3. `qa_agent`: 如果用户是基于**已经提供的报告**进行提问、要求总结或澄清。\n"
      "4. `code_agent`: 如果用户的问题明确涉及代码。\n"
      "5. `other_chat_node`: 如果用户的问题是一个普通的聊天对话。\n"
      "6. `END`: 如果对话应该结束。\n\n"

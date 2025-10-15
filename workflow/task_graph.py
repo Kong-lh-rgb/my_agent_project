@@ -27,6 +27,7 @@ class State(TypedDict):
     required_report:bool
     awaiting_clarification:bool
     rewritten_input:str
+    clarification_type:str
 
 def manager_node(state:State):
     """
@@ -121,6 +122,8 @@ def route_after_find(state: State):
         return "writer_agent"
     elif next_node == "writer_agent":
         return "writer_agent"
+    elif next_node == "research_agent":
+        return "research_agent"
     else:
         return "qa_node"
 
