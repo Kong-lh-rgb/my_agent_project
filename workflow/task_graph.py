@@ -36,6 +36,7 @@ def manager_node(state:State):
     return res
 
 
+
 def research_node(state:State):
     """接受用户输入，进行信息检索和初步分析，将结果存入state"""
     print("---调用 Research 节点 搜索信息---")

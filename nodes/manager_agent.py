@@ -108,7 +108,7 @@ def manager_process(state):
     return {
         "messages": messages,
         "next_node": res.destination,
-        "current_task": res.next_input,
+        "current_task": user_input,
     }
 
 
