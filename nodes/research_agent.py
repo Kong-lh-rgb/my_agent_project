@@ -68,16 +68,29 @@ from core.prompt_templates import RESEARCH_PROMPT
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 
 # 接收状态中的用户信息，返回到state中的raw_text字段
-def create_research_agent():
+def _create_research_agent_executor():
     """
-    创建一个拥有搜索和网页浏览能力的自主研究代理。
-    该代理可以自行决定使用哪个工具来完成任务。
+    【内部函数】创建一个拥有搜索和网页浏览能力的自主研究代理。
     """
-    tools = [search_tool,web_tool]
+    tools = [search_tool, web_tool]
     llm = get_llm(smart=False)
     agent = create_openai_tools_agent(llm, tools, RESEARCH_PROMPT)
-    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True,handle_parsing_errors=True)
+    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, handle_parsing_errors=True)
     return agent_executor
+
+# 【优化】在模块加载时创建一次 Agent Executor
+_research_agent_executor = _create_research_agent_executor()
+
+def research_process(state):
+    """
+    【优化后的节点函数】
+    接受用户输入，进行信息检索和初步分析。
+    """
+    # 【优化】直接调用预先创建好的 agent_executor
+    result = _research_agent_executor.invoke({"input": state["current_task"]})
+    return {
+        "raw_text": result["output"]
+    }
 
 # 后续把返回的长文本传递给rag存入chromedb
 

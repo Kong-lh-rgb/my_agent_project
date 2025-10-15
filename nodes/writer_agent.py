@@ -18,11 +18,25 @@ from langchain_core.documents import Document
 #         return extension
 #     return "md"  # 默认扩展名
 
-def create_writer_agent(state: Dict[str, Any]):
+def _create_writer_agent_executor():
     """
-    负责将信息整理并写入文件的智能体。
-    它根据提供的资料和用户问题，生成一份结构清晰，内容详实的文档。
+    【内部函数】创建一个可复用的 writer agent executor。
     """
+    tools = [save_to_file, generate_filename]
+    llm = get_llm(smart=False)
+    agent = create_openai_tools_agent(llm, tools, WRITER_PROMPT)
+    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+    return agent_executor
+
+# 【优化】在模块加载时创建一次 Agent Executor
+_writer_agent_executor = _create_writer_agent_executor()
+
+def writer_process(state: Dict[str, Any]):
+    """
+        【优化后的节点函数】
+        负责将信息整理并写入文件的智能体。
+        它根据提供的资料和用户问题，生成一份结构清晰，内容详实的文档。
+        """
     user_input = state["input"]
     documents = state["documents"]
     doc_details = "\n\n".join([
@@ -30,16 +44,8 @@ def create_writer_agent(state: Dict[str, Any]):
         for i, doc in enumerate(documents)
     ])
 
-
-    tools = [save_to_file, generate_filename]
-    llm = get_llm(smart=False)
-    prompt = WRITER_PROMPT
-
-
-    agent = create_openai_tools_agent(llm, tools, prompt)
-    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
-
-    result = agent_executor.invoke({
+    # 【优化】直接调用预先创建好的 agent_executor
+    result = _writer_agent_executor.invoke({
         "input": user_input,
         "details": doc_details
     })

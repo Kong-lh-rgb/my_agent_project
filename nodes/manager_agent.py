@@ -23,7 +23,7 @@ from core.llm_provider import get_llm
 from langgraph.graph import StateGraph,START,END
 
 
-MAX_MESSAGES_IN_CONTEXT = 10
+MAX_MESSAGES_IN_CONTEXT = 4
 
 class RouteDecision(BaseModel):
     """根据用户的查询路由到正确的智能体。"""

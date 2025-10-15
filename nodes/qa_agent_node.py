@@ -17,18 +17,18 @@ def create_qa_agent():
     agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, handle_parsing_errors=True)
     return agent_executor
 
-
+_qa_agent = create_qa_agent()
 
 def qa_process(state):
     """
         节点函数：根据检索到的文档和聊天历史生成最终答案。
         """
     print("---调用 QA 节点，生成答案---")
-    documents = state.get("documents", [])
+    documents = state.get("documents", [])[:3]
     messages = state.get("messages", [])
     # 【关键修改】确定要回答的问题
     # 优先使用重写后的问题，其次是当前任务，最后是原始输入
-    question = state.get("current_task") or state.get("input")
+    question = state.get("current_task")
 
     if not question:
         answer = "抱歉，我不知道要回答什么问题。"
@@ -47,10 +47,10 @@ def qa_process(state):
     chat_history = messages[:-1] if messages else []
 
     # 创建并调用链
-    qa_agent = create_qa_agent()
+
     docs_content = "\n\n".join([doc.page_content for doc in documents])
 
-    answer = qa_agent.invoke({"input": question, "documents": docs_content, "chat_history": chat_history}).get("output","")
+    answer = _qa_agent.invoke({"input": question, "documents": docs_content, "chat_history": chat_history}).get("output","")
 
     print(f"QA 节点生成的答案: {answer}")
 

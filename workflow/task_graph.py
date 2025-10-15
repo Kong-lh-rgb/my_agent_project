@@ -4,12 +4,12 @@ from typing import Annotated,List,Literal
 from typing_extensions import TypedDict, Any
 from langchain_core.documents import Document
 from nodes.manager_agent import create_manager_router_chain,manager_process
-from nodes.research_agent import create_research_agent
+from nodes.research_agent import research_process
 from nodes.put_in_db_node import put_in_db_node
 from nodes.find_node import find
-from nodes.writer_agent import create_writer_agent
+from nodes.writer_agent import writer_process
 from nodes.qa_agent_node import create_qa_agent,qa_process
-from nodes.rewrite_query_node import get_chat_history, rewrite_query
+
 
 
 
@@ -40,11 +40,8 @@ def manager_node(state:State):
 def research_node(state:State):
     """接受用户输入，进行信息检索和初步分析，将结果存入state"""
     print("---调用 Research 节点 搜索信息---")
-    research_agent = create_research_agent()
-    result = research_agent.invoke({"input":state["current_task"]})
-    return {
-        "raw_text":result["output"]
-    }
+    research_agent = research_process(state)
+    return research_agent
 
 
 def rag_node(state:State):
@@ -53,12 +50,7 @@ def rag_node(state:State):
     print("---调用 RAG 节点---")
     return put_in_db_node(state)
 
-def rewrite_query_node(state:State):
-    """重写用户查询以包含上下文"""
-    print("---调用 rewrite_query_node，优化查询---")
-    messages = state.get("messages", [])
-    get_chat_history(messages)
-    return rewrite_query(state)
+
 
 def find_answer_node(state:State):
     """接受用户问题到向量库中进行检索"""
@@ -77,7 +69,7 @@ def qa_node(state: State):
 def writer_node(state:State):
     """负责整理报告并写入文件"""
     print("---调用 Writer 节点，生成报告---")
-    final_result = create_writer_agent(state)
+    final_result = writer_process(state)
     out_put = final_result.get("output", "")
     print(f"节点信息: {out_put}")
     return {
@@ -130,7 +122,7 @@ def build_graph(checkpointer):
     workflow.add_node("find_node", find_answer_node)
     workflow.add_node("writer_agent", writer_node)
     workflow.add_node("qa_node", qa_node)
-    workflow.add_node("rewrite_query_node", rewrite_query_node)
+
 
     # 执行流程
     workflow.set_entry_point("manager_agent")
@@ -151,7 +143,7 @@ def build_graph(checkpointer):
 
     workflow.add_edge("research_agent", "rag_node")
     workflow.add_edge("rag_node", "find_node")
-    workflow.add_edge("rewrite_query_node", "find_node")
+
     # workflow.add_edge("find_node", "qa_node")
 
     workflow.add_conditional_edges(
