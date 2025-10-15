@@ -9,6 +9,7 @@ from nodes.put_in_db_node import put_in_db_node
 from nodes.find_node import find
 from nodes.writer_agent import writer_process
 from nodes.qa_agent_node import create_qa_agent,qa_process
+from nodes.other_chat_node import other_chat_process
 
 
 
@@ -77,6 +78,15 @@ def writer_node(state:State):
         "messages": [AIMessage(content=out_put)]
     }
 
+
+def other_chat_node(state:State):
+    res = other_chat_process(state)
+    return res
+
+
+
+
+
 def route_after_manage(state:State):
     """根据 manager 的决策路由到下一个节点"""
     next_node = state.get("next_node")
@@ -90,6 +100,8 @@ def route_after_manage(state:State):
     elif next_node == "code_agent":
         print("code_agent 节点尚未实现，路由到 END")
         return END
+    elif next_node == "other_chat_node":
+        return "other_chat_node"
     elif next_node == "END":
         return END
     else:
@@ -122,7 +134,7 @@ def build_graph(checkpointer):
     workflow.add_node("find_node", find_answer_node)
     workflow.add_node("writer_agent", writer_node)
     workflow.add_node("qa_node", qa_node)
-
+    workflow.add_node("other_chat_node", other_chat_node)
 
     # 执行流程
     workflow.set_entry_point("manager_agent")
@@ -135,6 +147,7 @@ def build_graph(checkpointer):
             "research_agent": "research_agent",
             "writer_agent": "writer_agent",
             # "find_node": "find_node",
+            "other_chat_node": "other_chat_node",
             "qa_agent": "qa_node",
             "code_agent": END,  # code_agent 节点尚未实现，直接路由到 END
             END: END
@@ -157,6 +170,6 @@ def build_graph(checkpointer):
 
     workflow.add_edge("writer_agent", END)
     workflow.add_edge("qa_node", END)
-
+    workflow.add_edge("other_chat_node", END)
     app = workflow.compile(checkpointer=checkpointer)
     return app

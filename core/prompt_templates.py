@@ -30,22 +30,27 @@ NAVIGATE_PROMPT = ChatPromptTemplate.from_messages([
      "你是一个智能路由助理，负责分析用户的最新问题并决定下一步行动。\n"
      "请严格按照以下规则进行判断，并以 JSON 格式返回你的决策。\n\n"
      "--- 路由选项 ---\n"
-     "1. `ask_user`: 如果用户想要查询或研究某个主题，但**没有明确说**是否需要“报告”、“文档”或“文件”。\n"
-     "2. `writer_agent`: 如果用户明确要求**研究并生成报告**。\n"
+     "1. `ask_user`: 当用户的意图不明确时选择此项。\n"
+     "2. `writer_agent`: 如果用户**明确了报告的主题和内容**，并要求**研究并生成报告**。\n"
      "3. `qa_agent`: 如果用户是基于**已经提供的信息**进行提问、要求总结或澄清。\n"
      "4. `code_agent`: 如果用户的问题明确涉及代码。\n"
-     "5. `END`: 如果对话应该结束。\n\n"
-     "--- 任务重写规则 ---\n"
+     "5. `other_chat_node`: 如果用户的问题是一个普通的聊天对话。\n"
+     "6. `END`: 如果对话应该结束。\n\n"
+     "--- 任务重写与澄清规则 ---\n"
      "1. 分析用户的最新问题，并结合聊天记录理解其真实意图。\n"
-     "2. 将用户的原始问题（可能很模糊，如'它怎么样了？'）改写成一个清晰、独立的任务指令。\n"
-     "3. **重要**: 改写后的任务指令**不应该包含答案**，它应该是一个需要后续节点去执行的问题或命令。\n\n"
+     "2. 将用户的原始问题改写成一个清晰、独立的任务指令，存入 `next_input`。\n"
+     "3. **澄清判断**: \n"
+     "   - 如果用户**没有提供明确主题**（例如，“给我写份报告”），则设置 `destination` 为 `ask_user`，`clarification_type` 为 `topic`。\n"
+     "   - 如果用户**提供了明确主题但没有说要不要报告**（例如，“关于XX的资料”），则设置 `destination` 为 `ask_user`，`clarification_type` 为 `report_needed`。\n"
+     "   - 如果不需要澄清，则 `clarification_type` 设置为 `none`。\n\n"
      "--- 输出格式 ---\n"
-     "你必须返回一个包含 `destination` 和 `next_input` 两个键的 JSON 对象。\n"
-     "例如:\n"
+     "你必须返回一个包含 `destination`, `next_input`, 和 `clarification_type` 三个键的 JSON 对象。\n"
+     "例如，对于输入“关于腾讯的新闻资料”:\n"
      "```json\n"
      "{{\n"
-     "  \"destination\": \"qa_agent\",\n"
-     "  \"next_input\": \"总结一下关于河北大学的资料\"\n"
+     "  \"destination\": \"ask_user\",\n"
+     "  \"next_input\": \"查找关于腾讯的新闻资料\",\n"
+     "  \"clarification_type\": \"report_needed\"\n"
      "}}\n"
      "```"
      ),
@@ -130,12 +135,24 @@ QA_PROMPT = ChatPromptTemplate.from_messages([
     MessagesPlaceholder(variable_name="agent_scratchpad"),
 ])
 
-REWRITE_QUERY_PROMPT = ChatPromptTemplate.from_messages([
+# REWRITE_QUERY_PROMPT = ChatPromptTemplate.from_messages([
+#     ("system",
+#      "你是一个查询优化助手。你的任务是根据聊天记录，将用户最新的、可能存在指代不明的问题（如 '它', '那个', '刚才说的'）改写成一个独立的、上下文完整的查询。\n"
+#      "如果用户的问题本身已经很完整，无需改写，则直接返回原问题。\n\n"
+#      "--- 聊天记录 ---\n"
+#      "{chat_history}\n"
+#      "---"),
+#     ("human", "用户最新问题：{input}\n\n请输出改写后的独立查询：")
+# ])
+
+CHAT_PROMPT = ChatPromptTemplate.from_messages([
     ("system",
-     "你是一个查询优化助手。你的任务是根据聊天记录，将用户最新的、可能存在指代不明的问题（如 '它', '那个', '刚才说的'）改写成一个独立的、上下文完整的查询。\n"
-     "如果用户的问题本身已经很完整，无需改写，则直接返回原问题。\n\n"
-     "--- 聊天记录 ---\n"
-     "{chat_history}\n"
-     "---"),
-    ("human", "用户最新问题：{input}\n\n请输出改写后的独立查询：")
+     "你是一个智能聊天助理。你的任务是根据用户的输入，进行自然、连贯的对话。\n"
+     "你可以参考之前的聊天记录，但不要直接重复之前的内容。\n"
+     "如果你不知道答案，可以礼貌地告诉用户你无法回答这个问题。"),
+    # 用于传入历史消息列表
+    MessagesPlaceholder(variable_name="chat_history"),
+    ("human", "{input}"),
+    # Agent 执行器需要这个占位符来插入中间步骤
+    MessagesPlaceholder(variable_name="agent_scratchpad"),
 ])
