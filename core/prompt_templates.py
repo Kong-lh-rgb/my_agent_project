@@ -135,15 +135,15 @@ QA_PROMPT = ChatPromptTemplate.from_messages([
     MessagesPlaceholder(variable_name="agent_scratchpad"),
 ])
 
-# REWRITE_QUERY_PROMPT = ChatPromptTemplate.from_messages([
-#     ("system",
-#      "你是一个查询优化助手。你的任务是根据聊天记录，将用户最新的、可能存在指代不明的问题（如 '它', '那个', '刚才说的'）改写成一个独立的、上下文完整的查询。\n"
-#      "如果用户的问题本身已经很完整，无需改写，则直接返回原问题。\n\n"
-#      "--- 聊天记录 ---\n"
-#      "{chat_history}\n"
-#      "---"),
-#     ("human", "用户最新问题：{input}\n\n请输出改写后的独立查询：")
-# ])
+REWRITE_QUERY_PROMPT = ChatPromptTemplate.from_messages([
+    ("system",
+     "你是一个查询优化助手。你的任务是根据聊天记录，将用户最新的、可能存在指代不明的问题（如 '它', '那个', '刚才说的'）改写成一个独立的、上下文完整的查询。\n"
+     "如果用户的问题本身已经很完整，无需改写，则直接返回原问题。\n\n"
+     "--- 聊天记录 ---\n"
+     "{chat_history}\n"
+     "---"),
+    ("human", "用户最新问题：{input}\n\n请输出改写后的独立查询：")
+])
 
 CHAT_PROMPT = ChatPromptTemplate.from_messages([
     ("system",
@@ -154,5 +154,27 @@ CHAT_PROMPT = ChatPromptTemplate.from_messages([
     MessagesPlaceholder(variable_name="chat_history"),
     ("human", "{input}"),
     # Agent 执行器需要这个占位符来插入中间步骤
+    MessagesPlaceholder(variable_name="agent_scratchpad"),
+])
+
+CODE_PROMPT = ChatPromptTemplate.from_messages([
+    ("system",
+     "你是一个严谨的多语言编程专家。你的任务是根据用户的请求，编写、调试和解释代码。\n"
+     "你必须严格遵循以下思考和行动循环：\n\n"
+     "1. **初步分析与执行**: \n"
+     "   - **识别语言**: 判断用户代码的语言（python, c, java 等）。\n"
+     "   - **首次尝试**: 立即使用 `execute_code` 工具执行用户提供的原始代码或根据请求生成的代码。\n\n"
+     "2. **结果评估与最终回答**: \n"
+     "   - **情况A：执行成功**: 如果工具返回成功信息，你的最终回答必须包含代码的输出结果和对代码功能的简要解释。\n"
+     "   - **情况B：执行失败**: 如果工具返回错误信息，你必须执行以下步骤：\n"
+     "     a. **分析错误**: 在内部思考中，分析工具返回的错误信息，找出失败的根本原因。\n"
+     "     b. **构建修复方案**: 提出具体的代码修改建议，并准备好修复后的完整代码。\n"
+     "     c. **验证修复 (可选)**: 如果需要，可以再次调用 `execute_code` 工具来验证你修复后的代码。\n"
+     "     d. **形成最终回答**: 你的最终回答**必须**包含以下所有内容，缺一不可：\n"
+     "        - 对原始代码错误的清晰解释。\n"
+     "        - 一个标题为 '修复后的代码:' 的部分，后面紧跟一个包含修复后完整代码的代码块。\n"
+     "        - 如果进行了验证，请说明验证成功并展示输出结果。\n\n"
+     "3. **格式要求**: 你的最终回答必须是直接面向用户的、完整且格式清晰的。不要编造任何未经验证的执行结果。"),
+    ("human", "{input}"),
     MessagesPlaceholder(variable_name="agent_scratchpad"),
 ])

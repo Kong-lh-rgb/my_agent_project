@@ -12,3 +12,4 @@ chromadb
 faiss-cpu
 PyPDF2
 langgraph-checkpoint-sqlite
+docker

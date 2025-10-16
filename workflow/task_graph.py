@@ -10,7 +10,7 @@ from nodes.find_node import find
 from nodes.writer_agent import writer_process
 from nodes.qa_agent_node import create_qa_agent,qa_process
 from nodes.other_chat_node import other_chat_process
-
+from nodes.code_agent import code_agent_process
 
 class State(TypedDict):
     input:str
@@ -25,7 +25,7 @@ class State(TypedDict):
     awaiting_clarification:bool
     rewritten_input:str
     clarification_type:str
-
+    code_execution_attempts: int
 
 
 
@@ -85,8 +85,9 @@ def other_chat_node(state:State):
     return res
 
 
-
-
+def code_agent_node(state:State):
+    res = code_agent_process(state)
+    return res
 
 
 def route_after_manage(state:State):
@@ -100,8 +101,7 @@ def route_after_manage(state:State):
     elif next_node == "qa_agent":
         return "qa_agent"
     elif next_node == "code_agent":
-        print("code_agent 节点尚未实现，路由到 END")
-        return END
+        return "code_agent_node"
     elif next_node == "other_chat_node":
         return "other_chat_node"
     elif next_node == "END":
@@ -143,7 +143,7 @@ def build_graph(checkpointer):
     workflow.add_node("writer_agent", writer_node)
     workflow.add_node("qa_node", qa_node)
     workflow.add_node("other_chat_node", other_chat_node)
-
+    workflow.add_node("code_agent_node", code_agent_node)
 
     workflow.set_entry_point("manager_agent")
 
@@ -157,14 +157,13 @@ def build_graph(checkpointer):
             # "find_node": "find_node",
             "other_chat_node": "other_chat_node",
             "qa_agent": "qa_node",
-            "code_agent": END,  # code_agent 节点尚未实现，直接路由到 END
+            "code_agent_node": "code_agent_node",
             END: END
         }
     )
 
     workflow.add_edge("research_agent", "rag_node")
     workflow.add_edge("rag_node", "find_node")
-
     # workflow.add_edge("find_node", "qa_node")
 
     workflow.add_conditional_edges(
@@ -179,6 +178,7 @@ def build_graph(checkpointer):
     workflow.add_edge("writer_agent", END)
     workflow.add_edge("qa_node", END)
     workflow.add_edge("other_chat_node", END)
+    workflow.add_edge("code_agent_node", END)
 
 
 

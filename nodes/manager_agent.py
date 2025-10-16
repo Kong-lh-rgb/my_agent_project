@@ -18,9 +18,10 @@
 from langchain_core.messages import HumanMessage, AIMessage
 from pydantic import BaseModel, Field
 from typing import Literal
-from core.prompt_templates import NAVIGATE_PROMPT
+from core.prompt_templates import NAVIGATE_PROMPT,REWRITE_QUERY_PROMPT
 from core.llm_provider import get_llm
 from langgraph.graph import START,END
+from langchain_core.output_parsers import StrOutputParser
 
 
 MAX_MESSAGES_IN_CONTEXT = 6
@@ -47,6 +48,16 @@ def create_manager_router_chain():
     structured_llm = llm.with_structured_output(RouteDecision)
     router_chain = NAVIGATE_PROMPT | structured_llm
     return router_chain
+
+
+def create_rewrite_chain():
+    """
+    创建一个用于改写用户输入的链。
+    """
+    llm = get_llm(smart=False)
+    rewrite_chain = REWRITE_QUERY_PROMPT | llm | StrOutputParser()
+    return rewrite_chain
+
 
 def manager_process(state):
     print("---调用 Manager 节点，开始进行意图判断---")
@@ -95,6 +106,22 @@ def manager_process(state):
                 "required_report": True
             }
 
+    if len(messages) > 1: # 只有在有历史记录时才需要改写
+        print("---进行查询改写---")
+        rewrite_chain = create_rewrite_chain()
+        # 传入除最新消息外的历史记录
+        chat_history = messages[:-1]
+        rewritten_input = rewrite_chain.invoke({
+            "chat_history": chat_history,
+            "input": user_input
+        })
+        print(f"原始输入: '{user_input}'")
+        print(f"改写后输入: '{rewritten_input}'")
+    else:
+        # 如果没有历史记录，直接使用原始输入
+        rewritten_input = user_input
+
+
     messages = state.get("messages", []) + [HumanMessage(content=state["input"])]
     if not messages[-1].content:
         print("错误：最新的消息内容为空")
@@ -104,7 +131,7 @@ def manager_process(state):
     manager_chain = create_manager_router_chain()
     res = manager_chain.invoke({
         "messages": in_messages,
-        "input": user_input,
+        "input": rewritten_input,
     })
 
     if res.destination == "other_chat_node":
@@ -139,11 +166,16 @@ def manager_process(state):
 
 
 
-    return {
+    return_dict = {
         "messages": messages,
         "next_node": res.destination,
         "current_task": res.next_input,
     }
 
+
+    if res.destination == "code_agent":
+        return_dict["code_execution_attempts"] = 0
+
+    return return_dict
 
 
