@@ -15,22 +15,25 @@
 #     result = res.invoke({"input":"帮我看一下我的代码哪里有问题"})
 #     print(result["output"])
 #
+# nodes/manager_agent.py
 from langchain_core.messages import HumanMessage, AIMessage
 from pydantic import BaseModel, Field
 from typing import Literal
-from core.prompt_templates import NAVIGATE_PROMPT,REWRITE_QUERY_PROMPT
+from core.prompt_templates import NAVIGATE_PROMPT, REWRITE_QUERY_PROMPT
 from core.llm_provider import get_llm
-from langgraph.graph import START,END
+from langgraph.graph import START, END
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
+MAX_MESSAGES_IN_CONTEXT = 10
+# 设定一个比摘要上下文略小的阈值，以保留最近的对话
+MESSAGES_TO_RETAIN_AFTER_SUMMARY = 5
 
-
-MAX_MESSAGES_IN_CONTEXT = 6
 
 class RouteDecision(BaseModel):
     """根据用户的查询路由到正确的智能体。"""
-    destination: Literal["ask_user","writer_agent","research_agent", "code_agent", "qa_agent", "other_chat_node","END"] = Field(
+    destination: Literal[
+        "ask_user", "writer_agent", "research_agent", "code_agent", "qa_agent", "other_chat_node", "END"] = Field(
         description="根据用户问题选择的下一个目标智能体。如果任务完成或问题简单，则选择'END'。"
     )
     next_input: str = Field(description="为下一个节点准备的、经过重写的清晰任务指令")
@@ -40,6 +43,7 @@ class RouteDecision(BaseModel):
                     "'report_needed' 表示不清楚是否要生成报告；"
                     "'none' 表示不需要澄清。"
     )
+
 
 def create_manager_router_chain():
     """
@@ -65,26 +69,47 @@ def create_summary_chain():
     llm = get_llm(smart=False)
     prompt = ChatPromptTemplate.from_messages([
         ("system", "你是一个专业的文本摘要生成器。请根据以下对话内容生成简洁明了的摘要。"),
-        ("user","{chat_history}")
+        ("user", "{chat_history}")
     ])
     summary_chain = prompt | llm | StrOutputParser()
     return summary_chain
-
 
 
 def manager_process(state):
     print("---调用 Manager 节点，开始进行意图判断---")
     messages = state.get("messages", [])
     user_input = state["input"]
+    updates = {}
 
-    # 当消息的长度超过十的时候对消息进行摘要，避免上下文过长
-    if len(messages) > 10:
+    # --- 摘要逻辑修复 ---
+    # 当消息的长度超过阈值时对消息进行摘要
+    if len(messages) > MAX_MESSAGES_IN_CONTEXT:
+        print(f"---消息数量 ({len(messages)}) 超过阈值 ({MAX_MESSAGES_IN_CONTEXT})，开始摘要---")
         summary_chain = create_summary_chain()
-        latest_message = messages[-1]
-        chat_history = messages[:-1]
-        history_str = "\n".join([f"{'User' if isinstance(m, HumanMessage) else 'AI'}: {m.content}" for m in chat_history])
-        summary = summary_chain.invoke({"chat_history": history_str})
-        messages = [AIMessage(content=f"这是之前的对话摘要: {summary}"), latest_message]
+        old_summary = state.get("conversation_summary", "")
+
+        # 我们摘要掉除了最近几条之外的所有消息
+        num_messages_to_summarize = len(messages) - MESSAGES_TO_RETAIN_AFTER_SUMMARY
+        messages_to_summarize = messages[:num_messages_to_summarize]
+
+        history_str = "\n".join(
+            [f"{'用户' if isinstance(m, HumanMessage) else '助理'}: {m.content}" for m in messages_to_summarize]
+        )
+        new_summary = summary_chain.invoke({
+            "chat_history": f"这是已有的对话摘要，请在此基础上进行总结和扩展：\n{old_summary}\n\n这是最近的对话内容：\n{history_str}"
+        })
+
+        # 创建新的消息列表：[摘要] + [最近未被摘要的消息]
+        summary_message = AIMessage(content=f"[对话摘要] {new_summary}")
+        retained_messages = messages[num_messages_to_summarize:]
+
+        # 使用 updates 字典来更新状态，而不是直接修改
+        updates["messages"] = [summary_message] + retained_messages
+        updates["conversation_summary"] = new_summary
+
+        # 更新本节点内使用的 messages 变量，以确保后续逻辑基于更新后的消息列表
+        messages = updates["messages"]
+        print("---摘要完成，消息列表已更新---")
 
     if state.get("awaiting_clarification"):
         print("---处理用户对报告需求的澄清---")
@@ -100,101 +125,110 @@ def manager_process(state):
                 required_report = False
             else:
                 clarification_message = AIMessage(content="无效输入，请重新回答 'y' 或 'n'。")
-                return {
+                updates.update({
                     "messages": messages + [HumanMessage(content=user_input), clarification_message],
                     "awaiting_clarification": True,
                     "clarification_type": "report_needed",
                     "next_node": END
-                }
+                })
+                return updates
             print(f"用户已澄清，是否需要报告: {required_report}")
-            return {
+            updates.update({
                 "messages": messages + [HumanMessage(content=user_input)],
                 "required_report": required_report,
                 "awaiting_clarification": False,
                 "next_node": "research_agent",
                 "current_task": original_task
-            }
+            })
+            return updates
         elif clarification_type == "topic":
             print("---用户已提供主题，合并任务并开始研究---")
             new_task = f"{original_task}，特别是关于 '{user_input}' 的方面"
             print(f"合并后的新任务: {new_task}")
-            return {
+            updates.update({
                 "messages": messages + [HumanMessage(content=user_input)],
                 "awaiting_clarification": False,
                 "next_node": "research_agent",
                 "current_task": new_task,
                 "required_report": True
-            }
+            })
+            return updates
 
-    if len(messages) > 1:
+    manager_chain = create_manager_router_chain()
+    current_messages = messages + [HumanMessage(content=user_input)]
+
+    preliminary_decision = manager_chain.invoke({
+        "messages": current_messages[-MAX_MESSAGES_IN_CONTEXT:],
+        "input": user_input,
+    })
+
+    if preliminary_decision.destination == "other_chat_node":
+        print("Manager 决策: 初步判断为聊天，直接路由到 -> other_chat_node")
+        updates.update({
+            "messages": current_messages,
+            "next_node": "other_chat_node",
+            "current_task": user_input
+        })
+        return updates
+
+    rewritten_input = user_input
+    if len(messages) > 0:
         print("---进行查询改写---")
         rewrite_chain = create_rewrite_chain()
-        chat_history = messages[:-1]
+        # 使用摘要前的完整历史进行改写
+        chat_history = state.get("messages", [])
         rewritten_input = rewrite_chain.invoke({
             "chat_history": chat_history,
             "input": user_input
         })
         print(f"原始输入: '{user_input}'")
         print(f"改写后输入: '{rewritten_input}'")
-    else:
 
-        rewritten_input = user_input
+    updates["rewritten_input"] = rewritten_input
 
-
-    messages = state.get("messages", []) + [HumanMessage(content=state["input"])]
-    if not messages[-1].content:
-        print("错误：最新的消息内容为空")
-        return {"next_node": "END"}
-
-    in_messages = messages[-MAX_MESSAGES_IN_CONTEXT:]
-    manager_chain = create_manager_router_chain()
-    res = manager_chain.invoke({
-        "messages": in_messages,
+    final_decision = manager_chain.invoke({
+        "messages": current_messages[-MAX_MESSAGES_IN_CONTEXT:],
         "input": rewritten_input,
     })
-
-    if res.destination == "other_chat_node":
-        print("Manager 决策: 意图为聊天，直接路由到 -> other_chat_node")
-        return {"messages": messages, "next_node": "other_chat_node", "current_task": user_input}
-
-    if res.destination == "ask_user":
+    if final_decision.destination == "ask_user":
         question = ""
-        if res.clarification_type == "report_needed":
+        if final_decision.clarification_type == "report_needed":
             question = "好的，我将为您查找相关资料。请问您需要我为您生成一份正式的报告吗？ (y/n)"
             print(f"---需求不明确 (report_needed)，向用户反问: {question}---")
-        elif res.clarification_type == "topic":
+        elif final_decision.clarification_type == "topic":
             question = "您想要关于什么主题的报告？"
             print(f"---需求不明确 (topic)，向用户反问: {question}---")
-        else:  # 默认或 fallback
+        else:
             question = "我不太理解您的意思，可以更详细地说明一下吗？"
             print(f"---需求不明确 (fallback)，向用户反问: {question}---")
 
         clarification_message = AIMessage(content=question)
-        return {
-            "messages": messages + [clarification_message],
-            "current_task": res.next_input,
+        updates.update({
+            "messages": current_messages + [clarification_message],
+            "current_task": final_decision.next_input,
             "awaiting_clarification": True,
-            "clarification_type": res.clarification_type,
+            "clarification_type": final_decision.clarification_type,
             "next_node": END
-        }
+        })
+        return updates
+
+    print(f"Manager 决策: 下一步路由到 -> {final_decision.destination}")
+    print(f"Manager 决策: 下一步任务 -> {final_decision.next_input}")
+
+    updates.update({
+        "messages": current_messages,
+        "next_node": final_decision.destination,
+        "current_task": final_decision.next_input,
+    })
+
+    if final_decision.destination == "code_agent":
+        updates["code_execution_attempts"] = 0
+
+    return updates
 
 
 
-    print(f"Manager 决策: 下一步路由到 -> {res.destination}")
-    print(f"Manager 决策: 下一步任务 -> {res.next_input}")
 
 
-
-    return_dict = {
-        "messages": messages,
-        "next_node": res.destination,
-        "current_task": res.next_input,
-    }
-
-
-    if res.destination == "code_agent":
-        return_dict["code_execution_attempts"] = 0
-
-    return return_dict
 
 

@@ -26,6 +26,7 @@ class State(TypedDict):
     rewritten_input:str
     clarification_type:str
     code_execution_attempts: int
+    conversation_summary: str
 
 
 
@@ -123,7 +124,7 @@ def route_after_find(state: State):
     elif next_node == "writer_agent":
         return "writer_agent"
     elif next_node == "research_agent":
-        return "research_agent"
+        return "qa_node"
     else:
         return "qa_node"
 
