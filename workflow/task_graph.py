@@ -48,14 +48,12 @@ def research_node(state:State):
 def rag_node(state:State):
     """接受原始文本，对文本进行分块，向量化存入数据库"""
     print("对数据进行向量化中...")
-    print("---调用 RAG 节点---")
     return put_in_db_node(state)
 
 
 def find_answer_node(state:State):
     """接受用户问题到向量库中进行检索"""
     print("从向量库中检索相关信息...")
-    print("---调用 Find Answer 节点---")
     res = find(state)
     return res
 
@@ -70,7 +68,7 @@ def qa_node(state: State):
 
 def writer_node(state:State):
     """负责整理报告并写入文件"""
-    print("---调用 Writer 节点，生成报告---")
+    print("---生成报告---")
     final_result = writer_process(state)
     out_put = final_result.get("output", "")
     print(f"节点信息: {out_put}")

@@ -15,7 +15,7 @@ RAG (Retrieval-Augmented Generation)：通过模拟浏览器访问并整合信�
 manager_agent：作为工作流的入口。它接收用户最初的请求，分析任务类型，然后决定将任务路由给哪个智能体。
 research_agent：当任务需要网络信息时被激活。它使用 search_tool 和 web_browser 工具，访问网页，提取关键信息。
 code_agent：处理代码相关问题。它可以使用 code_interpreter 来验证代码片段的正确性。
-writer_agent：当研究或代码任务完成后，manager_agent 将结果交给它，由它按照用户的要求（txt, md等）整理并使用 file_system 工具写入本地。
+writer_agent：manager_agent 将结果交给它，由它按照用户的要求（txt, md等）整理并使用 file_system 工具写入本地。
 LangGraph 实现：定义一个状态图（Graph State），其中包含任务队列、中间结果等信息。，实现任务的流转、协作和循环。
 
 自主选择工具

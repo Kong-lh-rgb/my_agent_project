@@ -22,6 +22,8 @@ from core.prompt_templates import NAVIGATE_PROMPT,REWRITE_QUERY_PROMPT
 from core.llm_provider import get_llm
 from langgraph.graph import START,END
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+
 
 
 MAX_MESSAGES_IN_CONTEXT = 6
@@ -59,13 +61,31 @@ def create_rewrite_chain():
     return rewrite_chain
 
 
+def create_summary_chain():
+    llm = get_llm(smart=False)
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "你是一个专业的文本摘要生成器。请根据以下对话内容生成简洁明了的摘要。"),
+        ("user","{chat_history}")
+    ])
+    summary_chain = prompt | llm | StrOutputParser()
+    return summary_chain
+
+
+
 def manager_process(state):
     print("---调用 Manager 节点，开始进行意图判断---")
     messages = state.get("messages", [])
     user_input = state["input"]
 
+    # 当消息的长度超过十的时候对消息进行摘要，避免上下文过长
+    if len(messages) > 10:
+        summary_chain = create_summary_chain()
+        latest_message = messages[-1]
+        chat_history = messages[:-1]
+        history_str = "\n".join([f"{'User' if isinstance(m, HumanMessage) else 'AI'}: {m.content}" for m in chat_history])
+        summary = summary_chain.invoke({"chat_history": history_str})
+        messages = [AIMessage(content=f"这是之前的对话摘要: {summary}"), latest_message]
 
-    # 检查是否在等待澄清
     if state.get("awaiting_clarification"):
         print("---处理用户对报告需求的澄清---")
         original_task = state["current_task"]
