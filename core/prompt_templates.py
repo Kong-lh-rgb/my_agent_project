@@ -7,7 +7,6 @@ RESEARCH_PROMPT = ChatPromptTemplate.from_messages([
                "3. 将所有提取的文本内容合并，并用'\\n\\n--- 原始网页分割线 ---\\n\\n'分隔。\n"
                "4. 将合并后的文本作为最终输出。不要进行总结或添加额外评论。"),
     ("human", "{input}"),
-    # 这个占位符至关重要，Agent Executor会在这里插入中间步骤
     ("placeholder", "{agent_scratchpad}"),
 ])
 
@@ -21,7 +20,6 @@ RESEARCH_PROMPT = ChatPromptTemplate.from_messages([
 #                "research_agent"
 #                "三个结点之一"),
 #     ("human", "{input}"),
-#     # 这个占位符至关重要，Agent Executor会在这里插入中间步骤
 #     ("placeholder", "{agent_scratchpad}"),
 # ])
 
@@ -79,8 +77,8 @@ WRITER_PROMPT = ChatPromptTemplate.from_messages([
      "3. 最后，调用 `save_file_tool` 工具，将生成的文件名和完整的报告内容作为参数传入，以完成保存。\n"
      "4. 任务完成，输出最终的保存结果信息。\n\n"
      "--- 重要规则 ---\n"
-     "1. 你必须且只能使用下面'背景资料'中提供的信息来撰写报告。严禁使用你的内部知识或任何外部信息。\n"  # <-- 强化规则
-     "2. 如果背景资料不足或无法回答用户问题，你必须明确指出资料不足，而不是自己编造内容。\n" # <-- 强化规则
+     "1. 你必须且只能使用下面'背景资料'中提供的信息来撰写报告。严禁使用你的内部知识或任何外部信息。\n"
+     "2. 如果背景资料不足或无法回答用户问题，你必须明确指出资料不足，而不是自己编造内容。\n"
      "3. 报告应包含适当的标题、子标题和段落，以确保结构清晰，易于阅读。\n"
      "4. 如果用户没有特别指定格式，默认生成Markdown格式的报告。\n"
      ),
@@ -92,7 +90,6 @@ WRITER_PROMPT = ChatPromptTemplate.from_messages([
      "{details}\n"
      "--- \n"
      ),
-    # 这个占位符至关重要，Agent Executor会在这里插入中间步骤（思考和工具调用）
     MessagesPlaceholder(variable_name="agent_scratchpad"),
 ])
 
@@ -150,10 +147,8 @@ CHAT_PROMPT = ChatPromptTemplate.from_messages([
      "你是一个智能聊天助理。你的任务是根据用户的输入，进行自然、连贯的对话。\n"
      "你可以参考之前的聊天记录，但不要直接重复之前的内容。\n"
      "如果你不知道答案，可以礼貌地告诉用户你无法回答这个问题。"),
-    # 用于传入历史消息列表
     MessagesPlaceholder(variable_name="chat_history"),
     ("human", "{input}"),
-    # Agent 执行器需要这个占位符来插入中间步骤
     MessagesPlaceholder(variable_name="agent_scratchpad"),
 ])
 

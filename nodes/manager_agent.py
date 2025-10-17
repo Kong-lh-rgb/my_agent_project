@@ -106,10 +106,9 @@ def manager_process(state):
                 "required_report": True
             }
 
-    if len(messages) > 1: # 只有在有历史记录时才需要改写
+    if len(messages) > 1:
         print("---进行查询改写---")
         rewrite_chain = create_rewrite_chain()
-        # 传入除最新消息外的历史记录
         chat_history = messages[:-1]
         rewritten_input = rewrite_chain.invoke({
             "chat_history": chat_history,
@@ -118,7 +117,7 @@ def manager_process(state):
         print(f"原始输入: '{user_input}'")
         print(f"改写后输入: '{rewritten_input}'")
     else:
-        # 如果没有历史记录，直接使用原始输入
+
         rewritten_input = user_input
 
 

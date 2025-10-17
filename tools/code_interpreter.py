@@ -19,16 +19,12 @@ def execute_code(language: str, code: str) -> str:
     """
     language = language.lower()
 
-    # 【核心修复】为C/C++/Java准备一个更安全的版本，转义反斜杠和单引号
-    # 1. 将所有 `\` 替换为 `\\`
-    # 2. 将所有 `'` 替换为 `'\''`
     shell_safe_code = code.replace('\\', '\\\\').replace("'", "'\\''")
 
     lang_map = {
         "python": ("python:3.10-slim", ["python", "-c", code]),
         "javascript": ("node:18-alpine", ["node", "-e", code]),
         "shell": ("alpine:latest", ["/bin/sh", "-c", code]),
-        # 使用经过双重转义的 shell_safe_code
         "c": ("gcc:latest", ["/bin/sh", "-c", f"echo '{shell_safe_code}' > main.c && gcc main.c -o main && ./main"]),
         "cpp": ("gcc:latest", ["/bin/sh", "-c", f"echo '{shell_safe_code}' > main.cpp && g++ main.cpp -o main && ./main"]),
         "java": ("openjdk:17-jdk-slim",["/bin/sh", "-c", f"echo '{shell_safe_code}' > Main.java && javac Main.java && java Main"]),
@@ -65,7 +61,6 @@ def execute_code(language: str, code: str) -> str:
 
         container.remove()
 
-        # 根据容器的退出状态码返回不同的结果
         if result['StatusCode'] == 0:
             if stdout:
                 return f"代码执行成功，输出:\n---\n{stdout}"
