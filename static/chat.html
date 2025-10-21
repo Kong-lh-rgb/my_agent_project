@@ -1,0 +1,214 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>LangGraph 智能助理</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        margin: 0;
+        background-color: #f0f2f5;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        color: #333;
+    }
+    #chat-container {
+        width: 100%;
+        max-width: 700px;
+        height: 90vh;
+        max-height: 800px;
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    #chat-history {
+        flex-grow: 1;
+        padding: 20px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .message {
+        padding: 10px 15px;
+        border-radius: 18px;
+        max-width: 75%;
+        line-height: 1.5;
+    }
+    .user-message {
+        background-color: #007bff;
+        color: white;
+        align-self: flex-end;
+        border-bottom-right-radius: 4px;
+    }
+    .ai-message {
+        background-color: #e9e9eb;
+        color: #333;
+        align-self: flex-start;
+        border-bottom-left-radius: 4px;
+    }
+    .typing-indicator {
+        font-style: italic;
+        color: #888;
+        align-self: flex-start;
+    }
+    #input-area {
+        display: flex;
+        padding: 15px;
+        border-top: 1px solid #ddd;
+        background-color: #f8f9fa;
+    }
+    #input {
+        flex-grow: 1;
+        border: 1px solid #ccc;
+        border-radius: 18px;
+        padding: 10px 15px;
+        font-size: 16px;
+        resize: none;
+        margin-right: 10px;
+        line-height: 1.5;
+    }
+    #input:focus {
+        outline: none;
+        border-color: #007bff;
+    }
+    button {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 18px;
+        background-color: #007bff;
+        color: white;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    button:hover {
+        background-color: #0056b3;
+    }
+    button:disabled {
+        background-color: #a0a0a0;
+        cursor: not-allowed;
+    }
+    #reset {
+        background-color: #6c757d;
+        margin-left: 8px;
+    }
+    #reset:hover {
+        background-color: #5a6268;
+    }
+  </style>
+</head>
+<body>
+  <div id="chat-container">
+    <div id="chat-history">
+      <div class="ai-message">你好！我是智能助理，有什么可以帮你的吗？</div>
+    </div>
+    <div id="input-area">
+      <textarea id="input" rows="1" placeholder="在此输入问题..."></textarea>
+      <button id="send">发送</button>
+      <button id="reset">重置</button>
+    </div>
+  </div>
+
+  <script>
+    const apiUrl = 'http://127.0.0.1:8000/chat';
+    let sessionId = localStorage.getItem('lg_session_id') || null;
+
+    const inputElem = document.getElementById('input');
+    const sendBtn = document.getElementById('send');
+    const resetBtn = document.getElementById('reset');
+    const chatHistory = document.getElementById('chat-history');
+
+    const addMessage = (text, sender) => {
+        const messageDiv = document.createElement('div');
+        messageDiv.classList.add('message', `${sender}-message`);
+        messageDiv.textContent = text;
+        chatHistory.appendChild(messageDiv);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    };
+
+    const showTypingIndicator = () => {
+        const indicator = document.createElement('div');
+        indicator.id = 'typing-indicator';
+        indicator.classList.add('message', 'ai-message', 'typing-indicator');
+        indicator.textContent = '正在输入...';
+        chatHistory.appendChild(indicator);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    };
+
+    const removeTypingIndicator = () => {
+        const indicator = document.getElementById('typing-indicator');
+        if (indicator) {
+            indicator.remove();
+        }
+    };
+
+    const sendMessage = async () => {
+        const text = inputElem.value.trim();
+        if (!text) return;
+
+        addMessage(text, 'user');
+        inputElem.value = '';
+        inputElem.style.height = 'auto'; // Reset height after sending
+        sendBtn.disabled = true;
+        showTypingIndicator();
+
+        const payload = { user_input: text };
+        if (sessionId) payload.session_id = sessionId;
+
+        try {
+            const res = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            removeTypingIndicator();
+            if (res.ok) {
+                addMessage(data.ai_response, 'ai');
+                if (data.session_id) {
+                    sessionId = data.session_id;
+                    localStorage.setItem('lg_session_id', sessionId);
+                }
+            } else {
+                addMessage(`Error: ${JSON.stringify(data)}`, 'ai');
+            }
+        } catch (e) {
+            removeTypingIndicator();
+            addMessage(`Fetch error: ${e.message}`, 'ai');
+        } finally {
+            sendBtn.disabled = false;
+            inputElem.focus();
+        }
+    };
+
+    sendBtn.addEventListener('click', sendMessage);
+
+    inputElem.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+
+    // Auto-resize textarea
+    inputElem.addEventListener('input', () => {
+        inputElem.style.height = 'auto';
+        inputElem.style.height = `${inputElem.scrollHeight}px`;
+    });
+
+    resetBtn.addEventListener('click', () => {
+        sessionId = null;
+        localStorage.removeItem('lg_session_id');
+        chatHistory.innerHTML = ''; // Clear visual chat
+        addMessage('会话已重置，你可以开始新的对话了。', 'ai');
+    });
+  </script>
+</body>
+</html>

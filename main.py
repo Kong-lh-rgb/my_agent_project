@@ -1,63 +1,65 @@
 import asyncio
 import uuid
 from workflow.task_graph import build_graph
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 load_dotenv()
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 import sqlite3
+from fastapi import FastAPI,Request
+from fastapi.staticfiles import StaticFiles
+import uvicorn
+from pydantic import BaseModel
 
 
-config = {"configurable": {"thread_id": str(uuid.uuid4())}}
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with AsyncSqliteSaver.from_conn_string("langgraph.db") as memory:
+        app.state.graph = build_graph(checkpointer=memory)
+        yield
 
-async def main():
+app = FastAPI(
+    title="智能助理API",
+    description="这是一个基于LangGraph构建的智能助理API。",
+    lifespan=lifespan
+)
+
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+class ChatRequest(BaseModel):
+    user_input: str
+    session_id:str | None = None
+
+
+@app.post("/chat")
+async def chat(chat_request: ChatRequest, request: Request):
+    """接收用户输入并且返回接口输出"""
+
+    graph = request.app.state.graph
+    session_id = chat_request.session_id or str(uuid.uuid4())
+    config = {"configurable": {"thread_id": session_id}}
+    inputs = {"input": chat_request.user_input}
+    final_state = await graph.ainvoke(inputs, config=config)
+
+    ai_response = "Sorry, I couldn't generate a response."
+    if final_state and final_state.get("messages"):
+        last_message = final_state["messages"][-1]
+        if hasattr(last_message, 'type') and last_message.type == 'ai':
+            ai_response = last_message.content
+
+    return {"ai_response": ai_response, "session_id": session_id}
+
+
+@app.get("/")
+async def root():
     """
-    主执行函数
+    根路径，提供一个简单的欢迎信息。
     """
-    async with AsyncSqliteSaver.from_conn_string(":memory:") as memory:
-        graph = build_graph(checkpointer=memory)
-
-        session_id = "my-first-session"
-        config = {"configurable": {"thread_id": session_id}}
-
-        print("你好！我是一个智能助理。输入 'exit' 或 'quit' 退出。")
-        while True:
-            # 接收用户输入
-            user_input = input("你: ")
-            if user_input.lower() in ["exit", "quit"]:
-                print("再见！")
-                break
-
-            if user_input.lower() == "reset":
-                print("对话已重置。")
-                session_id = "session_" + str(uuid.uuid4())
-                config = {"configurable": {"thread_id": session_id}}
-                continue
-
-            # 准备图的初始状态
-            inputs = {"input": user_input}
-
-            print("\n")
-            print("思考中..."+"\n")
-
-            final_state = None
-            async for event in graph.astream(inputs, config=config, stream_mode="updates"):
-                for node, values in event.items():
-                    print(f"\n> 节点 '{node}' 返回输出:")
-
-                final_state = event
-
-
-            if final_state:
-                last_node = list(final_state.keys())[-1]
-                messages = final_state[last_node].get("messages", [])
-                if messages:
-                    last_message = messages[-1]
-
-                    if hasattr(last_message, 'type') and last_message.type == 'ai':
-                        print(f"\n助理: {last_message.content}")
-
-            print("\n")
+    return {"message": "Welcome to the LangGraph Chat API. Please use the /chat endpoint to interact."}
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
