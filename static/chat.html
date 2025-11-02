@@ -116,19 +116,26 @@
     </div>
   </div>
 
-  <script>
-    const apiUrl = 'http://127.0.0.1:8000/chat';
-    let sessionId = localStorage.getItem('lg_session_id') || null;
-
+    <script>
     const inputElem = document.getElementById('input');
     const sendBtn = document.getElementById('send');
     const resetBtn = document.getElementById('reset');
     const chatHistory = document.getElementById('chat-history');
 
+    let sessionId = localStorage.getItem('sessionId') || null;
+    const accessToken = localStorage.getItem('accessToken');
+
+    // 页面加载时检查令牌
+    if (!accessToken) {
+        // 如果没有令牌，重定向到登录页
+        window.location.href = '/static/login.html';
+    }
+
     const addMessage = (text, sender) => {
         const messageDiv = document.createElement('div');
         messageDiv.classList.add('message', `${sender}-message`);
-        messageDiv.textContent = text;
+        // 使用 innerText 或 textContent 来防止 XSS
+        messageDiv.innerText = text;
         chatHistory.appendChild(messageDiv);
         chatHistory.scrollTop = chatHistory.scrollHeight;
     };
@@ -149,40 +156,65 @@
         }
     };
 
-    const sendMessage = async () => {
-        const text = inputElem.value.trim();
-        if (!text) return;
+    async function sendMessage() {
+        // 使用正确的变量名 inputElem
+        const message = inputElem.value.trim();
+        if (!message) return;
 
-        addMessage(text, 'user');
+        // 使用正确的函数名 addMessage
+        addMessage(message, 'user');
         inputElem.value = '';
-        inputElem.style.height = 'auto'; // Reset height after sending
+        inputElem.disabled = true;
         sendBtn.disabled = true;
         showTypingIndicator();
 
-        const payload = { user_input: text };
-        if (sessionId) payload.session_id = sessionId;
+        // 如果这是新会话，后端会创建ID
+        if (!sessionId) {
+            sessionId = null;
+        }
 
         try {
-            const res = await fetch(apiUrl, {
+            const response = await fetch('/chat', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                },
+                body: JSON.stringify({
+                    user_input: message,
+                    session_id: sessionId
+                })
             });
-            const data = await res.json();
-            removeTypingIndicator();
-            if (res.ok) {
-                addMessage(data.ai_response, 'ai');
-                if (data.session_id) {
-                    sessionId = data.session_id;
-                    localStorage.setItem('lg_session_id', sessionId);
-                }
-            } else {
-                addMessage(`Error: ${JSON.stringify(data)}`, 'ai');
+
+            if (response.status === 401) {
+                localStorage.removeItem('accessToken');
+                localStorage.removeItem('sessionId');
+                window.location.href = '/static/login.html';
+                return;
             }
-        } catch (e) {
+
+            if (!response.ok) {
+                // 尝试解析错误信息，如果后端返回了JSON格式的错误
+                const errorData = await response.json().catch(() => null);
+                const detail = errorData ? errorData.detail : `HTTP error! status: ${response.status}`;
+                throw new Error(detail);
+            }
+
+            const data = await response.json();
             removeTypingIndicator();
-            addMessage(`Fetch error: ${e.message}`, 'ai');
+            addMessage(data.ai_response, 'ai');
+
+            if (data.session_id && !sessionId) {
+                sessionId = data.session_id;
+                localStorage.setItem('sessionId', sessionId);
+            }
+
+        } catch (error) {
+            console.error('Fetch error:', error);
+            removeTypingIndicator();
+            addMessage(`Error: ${error.message}. Please try again.`, 'ai');
         } finally {
+            inputElem.disabled = false;
             sendBtn.disabled = false;
             inputElem.focus();
         }
@@ -205,10 +237,12 @@
 
     resetBtn.addEventListener('click', () => {
         sessionId = null;
-        localStorage.removeItem('lg_session_id');
+        // 注意：这里保存的键名是 sessionId，不是 lg_session_id
+        localStorage.removeItem('sessionId');
         chatHistory.innerHTML = ''; // Clear visual chat
         addMessage('会话已重置，你可以开始新的对话了。', 'ai');
     });
   </script>
+
 </body>
 </html>
